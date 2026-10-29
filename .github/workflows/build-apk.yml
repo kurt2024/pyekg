@@ -1,0 +1,46 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ] # veya master (hangi dalı kullanıyorsanız)
+  workflow_dispatch:      # İstediğinizde elle başlatabilmek için
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # Buildozer için gerekli önbellek ayarları (Sonraki derlemeleri hızlandırır)
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(date -u +'%Y%m%d')" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v3
+        with:
+          path: ~/.buildozer
+          key: buildozer-global-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+
+      - uses: actions/cache@v3
+        with:
+          path: .buildozer
+          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}
+
+      # Buildozer ile APK oluşturma
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          workdir: .
+          buildozer_version: stable
+
+      # Oluşan APK'yı GitHub'a yükleme (İndirebilmeniz için)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-uygulamam-apk
+          path: ${{ steps.buildozer.outputs.filename }}
