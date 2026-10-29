@@ -2,45 +2,47 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ] # veya master (hangi dalı kullanıyorsanız)
-  workflow_dispatch:      # İstediğinizde elle başlatabilmek için
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Kodları İndir (Checkout)
+        uses: actions/checkout@v4
 
-      # Buildozer için gerekli önbellek ayarları (Sonraki derlemeleri hızlandırır)
-      - name: Get Date
-        id: get-date
+      - name: Python Kurulumu
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Java (JDK 17) Kurulumu
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Gerekli Linux Paketlerini Yükle
         run: |
-          echo "date=$(date -u +'%Y%m%d')" >> $GITHUB_OUTPUT
-        shell: bash
+          sudo apt update
+          sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev \
+            libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev \
+            build-essential libsqlite3-dev
 
-      - name: Cache Buildozer global directory
-        uses: actions/cache@v3
-        with:
-          path: ~/.buildozer
-          key: buildozer-global-${{ runner.os }}-${{ steps.get-date.outputs.date }}
+      - name: Buildozer ve Cython Kurulumu
+        run: |
+          pip install --upgrade pip
+          pip install "cython<3.0.0"
+          pip install buildozer virtualenv
 
-      - uses: actions/cache@v3
-        with:
-          path: .buildozer
-          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}
+      - name: APK Derleme (Buildozer)
+        run: |
+          buildozer -v android debug
 
-      # Buildozer ile APK oluşturma
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          workdir: .
-          buildozer_version: stable
-
-      # Oluşan APK'yı GitHub'a yükleme (İndirebilmeniz için)
-      - name: Upload APK
+      - name: APK'yı Yükle (Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: python-uygulamam-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          name: python-apk-dosyam
+          path: bin/*.apk
